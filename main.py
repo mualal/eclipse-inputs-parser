@@ -1,4 +1,4 @@
-from lib import pre_parser
+from lib import pre_parser, parser
 import os
 
 
@@ -13,3 +13,11 @@ if __name__ == '__main__':
 
     with open(os.path.join('output', 'output.inc'), 'w') as f:
         f.write(text)
+
+    keywords = ("DATES", "COMPDAT", "COMPDATL")
+    parameters = ("Date", "Well name", "Local grid name", "I", "J", "K upper", "K lower", "Flag on connection",
+                  "Saturation table", "Transmissibility factor", "Well bore diameter", "Effective Kh",
+                  "Skin factor", "D-factor")
+
+    temp = parser.extract_keyword_blocks(text, keywords)
+    print(temp)
