@@ -36,7 +36,11 @@ def extract_keyword_blocks(text: str, keywords_tuple: Tuple[str]) -> List[Tuple[
     @return: list keywords text blocks ending with a newline "/"
     """
     list_of_blocks = re.split('\n/\n', text)
-    return [tuple(i.splitlines()) for i in list_of_blocks]
+    list_of_tuples = [tuple(i.splitlines()) for i in list_of_blocks]
+    for tuple_ in list_of_tuples:
+        if tuple_[0] not in keywords_tuple:
+            list_of_tuples.remove(tuple_)
+    return list_of_tuples
 
 
 def extract_lines_from_keyword_block(block: Tuple[str]) -> Tuple[str, List[str]]:
@@ -47,6 +51,7 @@ def extract_lines_from_keyword_block(block: Tuple[str]) -> Tuple[str, List[str]]
         - keyword - DATA, COMPDAT, etc.
         - lines - lines of the input text related to the current keyword
     """
+    return block[0], list(block[1:])
 
 
 def parse_keyword_block(keyword: str, keyword_lines: List[str], current_date: Any,
@@ -74,6 +79,7 @@ def parse_keyword_DATE_line(current_date_line: str) -> str:
     @param current_date_line: line related to a current DATA keyword block
     @return: list of parameters in a DATE line
     """
+    return re.search(r'\d{2} [A-Z]{3} \d{4}', current_date_line).group(0)
 
 
 def parse_keyword_COMPDAT_line(well_comp_line: str) -> List[str]:
@@ -82,6 +88,14 @@ def parse_keyword_COMPDAT_line(well_comp_line: str) -> List[str]:
     @param well_comp_line: line related to a current COMPDAT keyword block
     @return: list of parameters (+ NaN Loc. grid. parameter) in a COMPDAT line
     """
+    well_comp_line = re.sub(r'\'', ' ', well_comp_line)
+    well_comp_line = re.sub(r'\s+', ' ', well_comp_line)
+
+    unpacked_well_comp_line = default_params_unpacking_in_line(well_comp_line)
+    parameters_list = unpacked_well_comp_line.split()
+    parameters_list[1:1] = [np.nan]
+
+    return parameters_list[:-1]
 
 
 def parse_keyword_COMPDATL_line(well_comp_line: str) -> List[str]:
@@ -90,8 +104,13 @@ def parse_keyword_COMPDATL_line(well_comp_line: str) -> List[str]:
     @param well_comp_line: line related to a current COMPDATL keyword block
     @return: list of parameters in a COMPDATL line
     """
+    well_comp_line = re.sub(r'\'', ' ', well_comp_line)
+    well_comp_line = re.sub(r'\s+', ' ', well_comp_line)
 
-    # для парсинга параметров по-умолчанию
+    unpacked_well_comp_line = default_params_unpacking_in_line(well_comp_line)
+    parameters_list = unpacked_well_comp_line.split()
+
+    return parameters_list[:-1]
 
 
 def default_params_unpacking_in_line(line: str) -> str:
@@ -100,3 +119,12 @@ def default_params_unpacking_in_line(line: str) -> str:
     @param line: line related to a current COMPDAT/COMPDATL keyword block
     @return: the unpacked line related to a current COMPDAT/COMPDATL keyword block
     """
+    unpacked_line = line
+    all_asterisks = re.findall(r' \d+\*', unpacked_line)
+
+    for pattern in all_asterisks:
+        # change to \* in pattern to use asterisk not as a special symbol
+        actual_pattern = pattern[:-1]+'\*'
+        unpacked_line = re.sub(actual_pattern, ' DEFAULT' * int(pattern[:-1]), unpacked_line)
+
+    return unpacked_line
