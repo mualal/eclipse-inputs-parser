@@ -1,20 +1,35 @@
 import sys
+import os
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (QWidget, QLabel, QTextEdit, QPushButton, QFileDialog, QVBoxLayout, QApplication)
+from lib import pre_parser
 
 
-def get_file(text_field):
-    file_name, check = QFileDialog.getOpenFileName(None, 'Выберите файл с расширением .inc',
-                                              '', 'Text Files (*.txt *.inc)')
+def get_file(text_field, status_field):
+    file_name, check = QFileDialog.getOpenFileName(None,
+                                                   'Выберите файл с расширением .inc',
+                                                   os.path.dirname(os.getcwd()).replace(os.sep, '/'),
+                                                   'Text Files (*.txt *.inc)')
     if check:
         with open(file_name, 'r', encoding='UTF-8') as f:
             file_text = f.read()
             text_field.setPlainText(file_text)
+        status_field.setText('Статус: текущие данные взяты из файла: ' + file_name)
 
 
-def run_action(text):
-    print(repr(text))
+def run_action(text_field, status_field):
+    cleaned_text = pre_parser.clean_schedule(text_field.toPlainText())
+    text_field.setPlainText(cleaned_text)
+
+    status_field.setText('Статус: данные в текстовом поле очищены и результат парсинга <a href=' +
+                         os.path.join(os.path.dirname(os.getcwd()), 'output').replace(os.sep, '/') +
+                         '>записан в csv файл</a>')
+    status_field.setOpenExternalLinks(True)
+
+
+def update_status(status_field):
+    status_field.setText('Статус: текущие данные в текстовом поле редактируются пользователем')
 
 
 class MainWindow(QWidget):
@@ -31,15 +46,19 @@ class MainWindow(QWidget):
         choose_button = QPushButton('Выбрать файл с разделом SCHEDULE')
         run_button = QPushButton('Запустить парсер')
 
-        widgets = (parser_label, text_to_parse, choose_button, run_button)
+        status_bar = QLabel('Статус: требуется файл для парсинга', self)
+        status_bar.setStyleSheet('background-color: yellow; border: 1px solid black;')
+
+        widgets = (parser_label, text_to_parse, choose_button, run_button, status_bar)
 
         vbox = QVBoxLayout()
         for widget in widgets:
             widget.setFont(QFont('Times New Roman', 12))
             vbox.addWidget(widget)
 
-        choose_button.clicked.connect(lambda: get_file(text_to_parse))
-        run_button.clicked.connect(lambda: run_action(text_to_parse.toPlainText()))
+        choose_button.clicked.connect(lambda: get_file(text_to_parse, status_bar))
+        run_button.clicked.connect(lambda: run_action(text_to_parse, status_bar))
+        text_to_parse.textChanged.connect(lambda: update_status(status_bar))
 
         self.setLayout(vbox)
 
