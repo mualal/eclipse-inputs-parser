@@ -3,7 +3,7 @@ import os
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (QWidget, QLabel, QTextEdit, QPushButton, QFileDialog, QVBoxLayout, QApplication)
-from lib import pre_parser
+from lib import pre_parser, parser
 
 
 def get_file(text_field, status_field):
@@ -22,10 +22,19 @@ def run_action(text_field, status_field):
     cleaned_text = pre_parser.clean_schedule(text_field.toPlainText())
     text_field.setPlainText(cleaned_text)
 
+    output_file_path = os.path.join(os.path.dirname(os.getcwd()), 'output', 'schedule_output.csv')
+
     status_field.setText('Статус: данные в текстовом поле очищены и результат парсинга <a href=' +
-                         os.path.join(os.path.dirname(os.getcwd()), 'output').replace(os.sep, '/') +
+                         output_file_path.replace(os.sep, '/') +
                          '>записан в csv файл</a>')
     status_field.setOpenExternalLinks(True)
+
+    keywords = ("DATES", "COMPDAT", "COMPDATL")
+    parameters = ("Date", "Well name", "Local grid name", "I", "J", "K upper", "K lower", "Flag on connection",
+                  "Saturation table", "Transmissibility factor", "Well bore diameter", "Effective Kh",
+                  "Skin factor", "Skin factor", "Skin factor", "D-factor")
+
+    parser.transform_schedule(keywords, parameters, None, output_file_path, text_field.toPlainText())
 
 
 def update_status(status_field):

@@ -2,9 +2,11 @@ import re
 from typing import Tuple, List, Any
 import numpy as np
 import pandas as pd
+from lib import pre_parser
 
 
-def transform_schedule(keywords: Tuple[str], parameters: Tuple[str], input_file: str, output_file: str) -> pd.DataFrame:
+def transform_schedule(keywords: Tuple[str], parameters: Tuple[str], input_file: str, output_file: str,
+                       finished_text=None) -> pd.DataFrame:
     """
     read the input .inc-file and transform it to .csv schedule
     your main function
@@ -12,9 +14,27 @@ def transform_schedule(keywords: Tuple[str], parameters: Tuple[str], input_file:
     @param parameters: column names of output .csv file
     @param input_file: path to your source input .inc file
     @param output_file: path to your output .csv file
+    @param finished_text: if there is text (not input file)
     @return:
     """
-    return
+    if finished_text is not None:
+        text = finished_text
+    else:
+        text = pre_parser.read_schedule(input_file, 'r', 'UTF-8')
+
+    if pre_parser.inspect_schedule(text):
+        text = pre_parser.clean_schedule(text)
+    else:
+        print('Not expected input file')
+
+    parsed_sheet = pd.DataFrame(parse_schedule(text, keywords), columns=parameters)
+    for i in range(parsed_sheet.shape[0]):
+        for j in range(parsed_sheet.shape[1]):
+            if parsed_sheet.iloc[i, j] is None:
+                parsed_sheet.iloc[i, j] = ''
+
+    parsed_sheet.to_csv(output_file, na_rep='NaN')
+    return parsed_sheet
 
 
 def parse_schedule(text: str, keywords_tuple: Tuple[str]) -> List[List[str]]:
@@ -25,6 +45,31 @@ def parse_schedule(text: str, keywords_tuple: Tuple[str]) -> List[List[str]]:
     @return: list of elements [[DATA1, WELL1, PARAM1, PARAM2, ...], [DATA2, ...], ...] ready to be transformed
     to the resulting DataFrame
     """
+    keywords_blocks = extract_keyword_blocks(text, keywords_tuple)
+    ready_list = []
+    current_date = np.nan
+
+    for block in keywords_blocks:
+        if block[0] == 'DATES':
+            for line in block[1:-1]:
+                ready_list.append([parse_keyword_DATE_line(line)] + [np.nan])
+            current_date = parse_keyword_DATE_line(block[-1])
+            current_index = keywords_blocks.index(block)
+            if current_index != len(keywords_blocks) - 1:
+                if keywords_blocks[current_index + 1][0] == 'DATES':
+                    ready_list.append([current_date] + [np.nan])
+            else:
+                if block[0] == 'DATES':
+                    ready_list.append([current_date] + [np.nan])
+
+        if block[0] == 'COMPDAT':
+            for line in block[1:]:
+                ready_list.append([current_date] + parse_keyword_COMPDAT_line(line))
+        if block[0] == 'COMPDATL':
+            for line in block[1:]:
+                ready_list.append([current_date] + parse_keyword_COMPDATL_line(line))
+
+    return ready_list
 
 
 # 3 функции ниже можете написать на своё усмотрение, тут они выглядят тяжеловато
